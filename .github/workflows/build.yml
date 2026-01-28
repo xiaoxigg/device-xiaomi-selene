@@ -1,0 +1,47 @@
+name: Build LineageOS Recovery
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    
+    steps:
+    - name: Checkout device tree
+      uses: actions/checkout@v4
+      
+    - name: Setup environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y git openjdk-11-jdk bc
+        
+    - name: Clone minimal LineageOS
+      run: |
+        mkdir lineage
+        cd lineage
+        # 只下载必要的部分
+        git clone --depth=1 https://github.com/LineageOS/android_bootable_recovery bootable/recovery
+        git clone --depth=1 https://github.com/LineageOS/android_system_core system/core
+        git clone --depth=1 https://github.com/LineageOS/android_build build
+        
+    - name: Build recovery
+      run: |
+        cd lineage
+        # 复制设备树
+        mkdir -p device/xiaomi/selene
+        cp -r ../* device/xiaomi/selene/
+        
+        # 尝试构建
+        cd bootable/recovery
+        make -j2 2>&1 | tee build.log
+        
+    - name: Upload result
+      uses: actions/upload-artifact@v4
+      with:
+        name: lineage-recovery
+        path: |
+          lineage/bootable/recovery/recovery.img
+          lineage/bootable/recovery/build.log
+        if-no-files-found: warn
