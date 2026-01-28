@@ -1,0 +1,111 @@
+# 文件: .github/workflows/build_twrp_fixed.yml
+name: Build TWRP Recovery (Fixed)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 100
+    
+    steps:
+    - name: Checkout device tree
+      uses: actions/checkout@v4
+      
+    - name: Setup build environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          git-core python3 python-is-python3 curl \
+          openjdk-11-jdk ccache bc libssl-dev \
+          android-sdk-libsparse-utils abootimg
+        
+        curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
+        chmod +x ~/repo
+        sed -i '1s/python$/python3/' ~/repo
+        
+    - name: Prepare TWRP build environment
+      run: |
+        mkdir -p twrp-build/device/xiaomi/selene
+        mkdir -p twrp-build/vendor/xiaomi/selene
+        
+        cp -r Android.bp Android.mk AndroidProducts.mk BoardConfig.mk device.mk twrp-build/device/xiaomi/selene/
+        cp -r extract-files.sh omni_selene.mk proprietary-files.txt README.md twrp-build/device/xiaomi/selene/
+        cp -r recovery.fstab selene-vendor.mk setup-makefiles.sh vendorsetup.sh twrp-build/device/xiaomi/selene/
+        
+        if [ -d "prebuilt" ]; then
+          cp -r prebuilt twrp-build/device/xiaomi/selene/
+        fi
+        
+        if [ -d "proprietary" ]; then
+          cp -r proprietary twrp-build/vendor/xiaomi/selene/
+        fi
+        
+        if [ -f "selene-vendor.mk" ]; then
+          cp selene-vendor.mk twrp-build/vendor/xiaomi/selene/
+        fi
+        
+    - name: Clone minimal TWRP sources
+      run: |
+        cd twrp-build
+        
+        ~/repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git \
+          -b twrp-12.1 \
+          --depth=1
+        
+        mkdir -p .repo/local_manifests
+        echo '<?xml version="1.0" encoding="UTF-8"?>' > .repo/local_manifests/roomservice.xml
+        echo '<manifest>' >> .repo/local_manifests/roomservice.xml
+        echo '  <project path="bootable/recovery" name="platform/bootable/recovery" remote="aosp" />' >> .repo/local_manifests/roomservice.xml
+        echo '  <project path="system/core" name="platform/system/core" remote="aosp" />' >> .repo/local_manifests/roomservice.xml
+        echo '  <project path="build/make" name="platform/build" remote="aosp" />' >> .repo/local_manifests/roomservice.xml
+        echo '</manifest>' >> .repo/local_manifests/roomservice.xml
+        
+        ~/repo sync -c -j2 --force-sync --no-clone-bundle --no-tags --quiet
+        
+    - name: Build recovery
+      run: |
+        cd twrp-build
+        
+        export ALLOW_MISSING_DEPENDENCIES=true
+        export LC_ALL=C
+        
+        source build/envsetup.sh
+        
+        if [ -f "device/xiaomi/selene/vendorsetup.sh" ]; then
+          source device/xiaomi/selene/vendorsetup.sh
+        else
+          echo 'add_lunch_combo twrp_selene-eng' > device/xiaomi/selene/vendorsetup.sh
+          source device/xiaomi/selene/vendorsetup.sh
+        fi
+        
+        echo "Starting build"
+        make recoveryimage -j2 TARGET_DEVICE=selene 2>&1 | tee build.log || true
+        
+    - name: Check and upload results
+      run: |
+        cd twrp-build
+        
+        echo "Searching for output"
+        find . -name "*.img" -type f 2>/dev/null | head -10
+        
+        if [ -f "out/target/product/selene/recovery.img" ]; then
+          echo "Build successful"
+          ls -lh out/target/product/selene/recovery.img
+        else
+          echo "No recovery.img found"
+          echo "Build log tail"
+          tail -50 build.log
+        fi
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: twrp-build-output
+        path: |
+          twrp-build/out/target/product/selene/recovery.img
+          twrp-build/build.log
+        if-no-files-found: ignore
