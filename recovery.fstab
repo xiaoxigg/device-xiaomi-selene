@@ -1,0 +1,21 @@
+# Android 13 Dynamic Partitions for selene/selenes
+
+/system
+/vendor
+/product
+/system_ext
+
+/data          f2fs    /dev/block/dm-38    flags=forceencrypt=footer;length=-16384
+/cache         ext4    /dev/block/by-name/cache
+/metadata      ext4    /dev/block/by-name/md_udc
+
+/persist       ext4    /dev/block/by-name/persist
+/mi_ext        ext4    /dev/block/by-name/mi_ext
+/nvdata        ext4    /dev/block/by-name/nvdata
+/nvcfg         ext4    /dev/block/by-name/nvcfg
+
+/boot          emmc    /dev/block/by-name/boot
+/dtbo          emmc    /dev/block/by-name/dtbo
+
+/protect_f     emmc    /dev/block/by-name/protect1
+/protect_s     emmc    /dev/block/by-name/protect2

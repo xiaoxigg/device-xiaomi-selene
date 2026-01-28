@@ -1,0 +1,33 @@
+# Vendor files for selene - CONCRETE FILES ONLY
+# No directories, only specific files
+
+# Build properties
+vendor/build.prop
+vendor/odm/etc/build.prop
+
+# GPU files (Mali-G52 MC2)
+vendor/lib/egl/libGLES_mali.so
+vendor/lib64/egl/libGLES_mali.so
+
+# Graphics HAL
+vendor/lib/hw/vulkan.mt6768.so
+vendor/lib64/hw/hwcomposer.mt6768.so
+vendor/lib64/hw/vulkan.mt6768.so
+
+# Graphics memory allocation
+vendor/lib/hw/gralloc.default.so
+vendor/lib64/hw/gralloc.default.so
+
+# Configuration files
+vendor/etc/audio_policy_configuration.xml
+vendor/etc/audio_effects.xml
+vendor/etc/media_codecs.xml
+
+# Compute support
+vendor/lib/libOpenCL.so
+vendor/lib64/libOpenCL.so
+
+# Xiaomi components
+vendor/bin/tidad@1.1
+vendor/bin/mlipayd@1.1
+vendor/lib/libmlipay.so
