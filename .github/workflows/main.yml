@@ -1,0 +1,230 @@
+# 文件: .github/workflows/build_twrp_fixed.yml
+name: Build TWRP Recovery for Dynamic Partition
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-22-04
+    timeout-minutes: 90
+    
+    steps:
+    - name: Checkout device tree
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+        
+    - name: Setup build environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          git-core python3 python-is-python3 curl \
+          openjdk-11-jdk ccache bc libssl-dev \
+          android-sdk-libsparse-utils abootimg \
+          gperf flex bison build-essential zip \
+          zlib1g-dev libncurses5-dev libxml2-utils \
+          unzip squashfs-tools python3-pip \
+          rsync
+        
+        curl -s https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
+        chmod +x ~/repo
+        sed -i '1s/python$/python3/' ~/repo
+        
+        # 清理空间
+        sudo rm -rf /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+        sudo apt-get clean
+        sudo rm -rf /var/lib/apt/lists/*
+        
+        # 设置ccache
+        mkdir -p ~/.ccache
+        echo "max_size = 5.0G" > ~/.ccache/ccache.conf
+        
+    - name: Check available disk space
+      run: |
+        echo "=== 磁盘空间检查 ==="
+        df -h
+        echo "=== 主目录空间 ==="
+        du -sh ~ --exclude=./.cache 2>/dev/null || true
+        
+    - name: Clone minimal TWRP sources
+      run: |
+        echo "创建构建目录..."
+        mkdir -p twrp-build
+        cd twrp-build
+        
+        echo "初始化最小化 TWRP 源码..."
+        ~/repo init -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git \
+          -b twrp-12.1 \
+          --depth=1 \
+          --groups=all,-darwin,-notdefault
+        
+        # 只同步必要的仓库
+        echo "同步必要仓库..."
+        ~/repo sync -c \
+          -j2 \
+          --force-sync \
+          --no-clone-bundle \
+          --no-tags \
+          --optimized-fetch \
+          --prune \
+          --quiet \
+          build/make \
+          bootable/recovery \
+          system/core \
+          hardware/qcom/bootctrl \
+          system/extras \
+          system/vold
+        
+    - name: Copy device tree
+      run: |
+        echo "复制设备树..."
+        
+        # 只复制必要的文件
+        ESSENTIAL_FILES=(
+          "Android.bp" "Android.mk" "AndroidProducts.mk"
+          "BoardConfig.mk" "device.mk" "omni_selene.mk"
+          "recovery.fstab" "selene-vendor.mk"
+          "proprietary-files.txt" "setup-makefiles.sh"
+          "extract-files.sh" "README.md"
+        )
+        
+        mkdir -p twrp-build/device/xiaomi/selene
+        
+        for file in "${ESSENTIAL_FILES[@]}"; do
+          if [ -f "$file" ]; then
+            echo "复制: $file"
+            cp "$file" "twrp-build/device/xiaomi/selene/"
+          fi
+        done
+        
+        # 复制prebuilt目录（如果存在）
+        if [ -d "prebuilt" ]; then
+          echo "复制prebuilt目录..."
+          cp -r "prebuilt" "twrp-build/device/xiaomi/selene/"
+        fi
+        
+        # 复制proprietary目录（如果存在）
+        if [ -d "proprietary" ]; then
+          echo "复制proprietary目录..."
+          mkdir -p twrp-build/vendor/xiaomi/selene
+          cp -r "proprietary" "twrp-build/vendor/xiaomi/selene/"
+        fi
+        
+        echo "设备树已准备完成"
+        ls -la twrp-build/device/xiaomi/selene/
+        
+    - name: Setup build configuration
+      run: |
+        cd twrp-build
+        
+        echo "设置构建配置..."
+        
+        # 创建最小化的vendorsetup
+        echo 'add_lunch_combo twrp_selene-eng' > device/xiaomi/selene/vendorsetup.sh
+        
+        # 确保使用正确的产品名
+        if [ -f "device/xiaomi/selene/AndroidProducts.mk" ]; then
+          echo "检查 AndroidProducts.mk..."
+          sed -i 's/omni_/twrp_/g' device/xiaomi/selene/AndroidProducts.mk 2>/dev/null || true
+        fi
+        
+        # 添加必要的环境变量
+        echo "export ALLOW_MISSING_DEPENDENCIES=true" >> build/envsetup.sh
+        echo "export LC_ALL=C" >> build/envsetup.sh
+        
+    - name: Start build
+      run: |
+        cd twrp-build
+        
+        echo "=== 开始构建 ==="
+        echo "当前时间: $(date)"
+        echo "当前目录: $(pwd)"
+        
+        # 设置环境
+        export ALLOW_MISSING_DEPENDENCIES=true
+        export LC_ALL=C
+        export USE_CCACHE=1
+        export CCACHE_DIR=~/.ccache
+        
+        # 初始化构建环境
+        source build/envsetup.sh
+        
+        # 添加设备到菜单
+        if [ -f "device/xiaomi/selene/vendorsetup.sh" ]; then
+          source device/xiaomi/selene/vendorsetup.sh
+        fi
+        
+        # 选择目标
+        lunch twrp_selene-eng || {
+          echo "lunch 失败，尝试直接构建..."
+          # 如果lunch失败，直接使用make
+          TARGET_DEVICE=selene
+        }
+        
+        echo "开始构建 bootimage..."
+        
+        # 清理旧的构建输出以节省空间
+        rm -rf out/target/product/selene/obj/PACKAGING 2>/dev/null || true
+        
+        # 开始构建 - 使用更少的内存占用
+        make bootimage -j2 2>&1 | tee build.log | grep -E "target|Building|error|Error|warning|Warning"
+        
+        echo "=== 构建完成 ==="
+        echo "当前时间: $(date)"
+        
+    - name: Check build results
+      run: |
+        cd twrp-build
+        
+        echo "=== 检查构建输出 ==="
+        
+        # 查找输出文件
+        OUTPUT_FOUND=false
+        
+        if [ -f "out/target/product/selene/boot.img" ]; then
+          echo "✅ 找到 boot.img"
+          ls -lh out/target/product/selene/boot.img
+          file out/target/product/selene/boot.img
+          OUTPUT_FOUND=true
+        fi
+        
+        if [ -f "out/target/product/selene/recovery.img" ]; then
+          echo "✅ 找到 recovery.img"
+          ls -lh out/target/product/selene/recovery.img
+          OUTPUT_FOUND=true
+        fi
+        
+        if [ "$OUTPUT_FOUND" = false ]; then
+          echo "❌ 未找到输出文件"
+          echo "=== 查找所有img文件 ==="
+          find . -name "*.img" -type f 2>/dev/null | head -10
+          
+          echo "=== 构建日志最后50行 ==="
+          tail -50 build.log
+        fi
+        
+        # 检查磁盘使用情况
+        echo "=== 构建后磁盘空间 ==="
+        df -h
+        
+    - name: Upload build artifacts
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: twrp-selene
+        path: |
+          twrp-build/out/target/product/selene/boot.img
+          twrp-build/out/target/product/selene/recovery.img
+        if-no-files-found: ignore
+        retention-days: 3
+        
+    - name: Upload build log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-log
+        path: twrp-build/build.log
+        if-no-files-found: ignore
