@@ -31,7 +31,10 @@ PRODUCT_COPY_FILES += \
     vendor/xiaomi/selene/proprietary/vendor/etc/audio_effects.xml:$(TARGET_COPY_OUT_VENDOR)/etc/audio_effects.xml \
     vendor/xiaomi/selene/proprietary/vendor/etc/media_codecs.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs.xml \
     vendor/xiaomi/selene/proprietary/vendor/lib/libOpenCL.so:$(TARGET_COPY_OUT_VENDOR)/lib/libOpenCL.so \
-    vendor/xiaomi/selene/proprietary/vendor/lib64/libOpenCL.so:$(TARGET_COPY_OUT_VENDOR)/lib64/libOpenCL.so
+    vendor/xiaomi/selene/proprietary/vendor/lib64/libOpenCL.so:$(TARGET_COPY_OUT_VENDOR)/lib64/libOpenCL.so \
+    # ===  ===
+    vendor/xiaomi/selene/proprietary/vendor/firmware/novatek_ts_fw.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/novatek_ts_fw.bin \
+    vendor/xiaomi/selene/proprietary/vendor/firmware/novatek_ts_mp.bin:$(TARGET_COPY_OUT_VILD)/firmware/novatek_ts_mp.bin
 
 # Mali GPU
 PRODUCT_PACKAGES += \

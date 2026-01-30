@@ -36,7 +36,15 @@ TARGET_SCREEN_DENSITY := 440
 # Kernel
 BOARD_BOOTIMG_HEADER_VERSION := 2
 BOARD_KERNEL_BASE := 0x40078000
-BOARD_KERNEL_CMDLINE := bootopt=64S3,32N2,64N2 buildvariant=user
+
+BOARD_KERNEL_CMDLINE := bootopt=64S3,32N2,64N2 buildvariant=user \
+    androidboot.touch=novatek \
+    androidboot.tp_lockdown_info=4636320119533200 \
+    androidboot.input_device=NVTCapacitiveTouchScreen \
+    androidboot.boot_devices=soc/11230000.mmc \
+    lcm_name=dsi_panel_k19a_36_02_0a_dsc_vdo_lcm_drv \
+    tp_module=novatek
+
 BOARD_KERNEL_PAGESIZE := 2048
 BOARD_RAMDISK_OFFSET := 0x07c08000
 BOARD_KERNEL_TAGS_OFFSET := 0x0bc08000

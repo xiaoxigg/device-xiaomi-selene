@@ -1,21 +1,32 @@
-# Android 13 Dynamic Partitions for selene/selenes
+# Android 13 Dynamic Partitions (VAB) for selene
 
-/system
-/vendor
-/product
-/system_ext
+# 超级分区（必须）
+/super                emmc    /dev/block/by-name/super    flags=display="Super";backup=1
 
-/data          f2fs    /dev/block/dm-38    flags=forceencrypt=footer;length=-16384
-/cache         ext4    /dev/block/by-name/cache
-/metadata      ext4    /dev/block/by-name/md_udc
+# 动态分区 - 通过dm设备挂载（关键！）
+/system               ext4    /dev/block/mapper/system    flags=slotselect;display="System"
+/vendor               ext4    /dev/block/mapper/vendor    flags=slotselect;display="Vendor"
+/product              ext4    /dev/block/mapper/product   flags=slotselect;display="Product"
+/system_ext           ext4    /dev/block/mapper/system_ext flags=slotselect;display="System Ext"
 
-/persist       ext4    /dev/block/by-name/persist
-/mi_ext        ext4    /dev/block/by-name/mi_ext
-/nvdata        ext4    /dev/block/by-name/nvdata
-/nvcfg         ext4    /dev/block/by-name/nvcfg
+# 用户数据分区
+/data                 f2fs    /dev/block/by-name/userdata flags=forceencrypt=footer;length=-16384
+/cache                ext4    /dev/block/by-name/cache
+/metadata             ext4    /dev/block/by-name/md_udc
 
-/boot          emmc    /dev/block/by-name/boot
-/dtbo          emmc    /dev/block/by-name/dtbo
+# 其他分区
+/persist              ext4    /dev/block/by-name/persist
+/mi_ext               ext4    /dev/block/by-name/mi_ext
+/nvdata               ext4    /dev/block/by-name/nvdata
+/nvcfg                ext4    /dev/block/by-name/nvcfg
 
-/protect_f     emmc    /dev/block/by-name/protect1
-/protect_s     emmc    /dev/block/by-name/protect2
+# A/B分区镜像
+/boot                 emmc    /dev/block/by-name/boot     flags=slotselect
+/dtbo                 emmc    /dev/block/by-name/dtbo     flags=slotselect
+
+# 保护分区
+/protect_f            emmc    /dev/block/by-name/protect1
+/protect_s            emmc    /dev/block/by-name/protect2
+
+# 恢复分区（如果独立）
+/recovery             emmc    /dev/block/by-name/recovery

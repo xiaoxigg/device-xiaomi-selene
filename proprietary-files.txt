@@ -31,3 +31,8 @@ vendor/lib64/libOpenCL.so
 vendor/bin/tidad@1.1
 vendor/bin/mlipayd@1.1
 vendor/lib/libmlipay.so
+
+
+# Novatek touchscreen firmware
+vendor/firmware/novatek_ts_fw.bin
+vendor/firmware/novatek_ts_mp.bin

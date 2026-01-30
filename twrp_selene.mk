@@ -6,11 +6,11 @@ LOCAL_PATH := device/xiaomi/selene
 $(call inherit-product, device/xiaomi/selene/device.mk)
 
 # Inherit from the omni configuration
-$(call inherit-product, vendor/omni/config/common.mk)
+$(call inherit-product, vendor/twrp/config/common.mk)
 
 # Device identifier
 PRODUCT_DEVICE := selene
-PRODUCT_NAME := omni_selene
+PRODUCT_NAME := twrp_selene
 PRODUCT_BRAND := Xiaomi
 PRODUCT_MODEL := Redmi note 11 4g
 PRODUCT_MANUFACTURER := Xiaomi
