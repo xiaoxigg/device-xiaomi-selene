@@ -29,4 +29,4 @@
 /protect_s            emmc    /dev/block/by-name/protect2
 
 # 恢复分区（如果独立）
-/recovery             emmc    /dev/block/by-name/recovery
+#/recovery             emmc    /dev/block/by-name/recovery
